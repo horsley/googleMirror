@@ -25,6 +25,7 @@ var (
 type mirrorConfig struct {
 	GoogleHosts []string //upstreams
 	GoogleSSL   bool     //ssl to google host
+	MirrorSSL   bool     //mirror listen ssl
 
 	MirrorListen string //local service listen
 	MirrorCert   string //local service using https cert
@@ -75,6 +76,7 @@ var defaultConfig = mirrorConfig{
 		"64.233.188.99:443",
 	},
 	GoogleSSL:    true,
+	MirrorSSL:    true,
 	MirrorListen: ":16113",
 }
 
@@ -180,7 +182,14 @@ func requestFilter(req *http.Request) {
 	//url args
 	query := req.URL.Query()
 	query.Set("gws_rd", "cr")
-	req.URL.RawQuery = query.Encode()
+
+	rawQuery := make([]string, 0)
+	for k, _ := range query {
+		rawV, _ := url.QueryUnescape(query.Get(k))
+		rawQuery = append(rawQuery, k+"="+rawV)
+	}
+
+	req.URL.RawQuery = strings.Join(rawQuery, "&")
 
 	if defaultConfig.GoogleSSL {
 		req.URL.Scheme = "https"
@@ -267,7 +276,7 @@ func responseBodyReplacement(origin []byte) []byte {
 	result = replaceRegexp3.ReplaceAll(result, hostTarget)
 
 	var mirrorScheme, oppsiteScheme string
-	if defaultConfig.GoogleSSL {
+	if defaultConfig.MirrorSSL {
 		mirrorScheme = "https"
 		oppsiteScheme = "http"
 	} else {
